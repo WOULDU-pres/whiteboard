@@ -1,3 +1,12 @@
+import { Routes, Route } from 'react-router-dom';
+import HomePage from './components/HomePage';
+import BoardPage from './components/BoardPage';
+
 export default function App() {
-  return <div>화이트보드</div>;
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/b/:code" element={<BoardPage />} />
+    </Routes>
+  );
 }
