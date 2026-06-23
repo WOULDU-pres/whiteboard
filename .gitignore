@@ -8,3 +8,5 @@ dist/
 .omc/
 .agents/
 .vercel/
+.claude/
+skills-lock.json
