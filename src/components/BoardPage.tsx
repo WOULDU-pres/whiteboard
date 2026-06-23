@@ -29,6 +29,8 @@ function BoardInner({ boardId, code, title }: { boardId: string; code: string; t
   const [mode, setMode] = useState<ToolMode>('pan');
   const rc = useRealtimeCards(boardId);
   const [toast, setToast] = useState<string | null>(null);
+  // 방금 생성한 카드 id — 해당 카드만 마운트 시 바로 편집 모드로 진입(spec §6).
+  const [newCardId, setNewCardId] = useState<string | null>(null);
   useEffect(() => { if (rc.error) setToast(rc.error); }, [rc.error]);
 
   return (
@@ -36,13 +38,23 @@ function BoardInner({ boardId, code, title }: { boardId: string; code: string; t
       <TopBar boardId={boardId} code={code} title={title} connected={rc.connected} />
       <Canvas
         addMode={mode === 'note'}
-        onAddAt={(x, y) => { rc.addText(x, y); setMode('pan'); }}
+        onAddAt={async (x, y) => {
+          setMode('pan');
+          const id = await rc.addText(x, y);
+          if (id) setNewCardId(id);
+        }}
       >
-        {rc.cards.map((c) => (
+        {[...rc.cards]
+          .sort((a, b) =>
+            a.z_index - b.z_index ||
+            a.created_at.localeCompare(b.created_at) ||
+            a.id.localeCompare(b.id))
+          .map((c) => (
           <CardView
             key={c.id}
             card={c}
             myId={rc.myId}
+            autoFocus={c.id === newCardId}
             onChange={(p) => rc.patch(c.id, p)}
             onDelete={() => rc.remove(c.id)}
             onDragEnd={(x, y) => rc.move(c.id, x, y)}

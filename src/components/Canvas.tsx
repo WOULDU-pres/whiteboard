@@ -18,10 +18,12 @@ export default function Canvas({ children, onAddAt, addMode }: Props) {
     if (!addMode || !onAddAt) return;
     const state = ref.current?.state;
     if (!state) return;
+    // e.currentTarget(dotgrid div)의 getBoundingClientRect는 이미 CSS transform(pan)
+    // 적용 후 화면 좌표라 rect.left/top에 positionX/Y가 포함돼 있다. 따라서 positionX/Y를
+    // 다시 빼면 안 되고, scale로만 나눠 논리 좌표를 얻는다.
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // 화면 좌표 → 논리 좌표 역변환
-    const x = (e.clientX - rect.left - state.positionX) / state.scale;
-    const y = (e.clientY - rect.top - state.positionY) / state.scale;
+    const x = (e.clientX - rect.left) / state.scale;
+    const y = (e.clientY - rect.top) / state.scale;
     onAddAt(x, y);
   }
 

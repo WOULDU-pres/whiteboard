@@ -15,7 +15,12 @@ export async function createBoard(title: string): Promise<Board> {
       .select()
       .single();
     if (!error && data) return data as Board;
-    if (error && !error.message.includes('duplicate')) throw error;
+    // Postgres unique_violation은 SQLSTATE 23505로 식별(메시지 문자열은 로케일/버전에
+    // 따라 깨질 수 있음). 충돌이면 다음 코드로 재시도, 그 외 에러는 즉시 throw.
+    const isDuplicate =
+      (error as { code?: string } | null)?.code === '23505' ||
+      !!error?.message?.includes('duplicate');
+    if (error && !isDuplicate) throw error;
   }
   throw new Error('보드 코드를 만들지 못했어요. 다시 시도해 주세요.');
 }

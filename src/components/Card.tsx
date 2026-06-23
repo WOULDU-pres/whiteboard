@@ -10,11 +10,13 @@ interface Props {
   onDelete: () => void;
   onDragEnd: (x: number, y: number) => void;
   onFocusCard: () => void;
+  /** 방금 생성된 내 텍스트 카드면 마운트 시 바로 편집 모드로 진입(spec §6). */
+  autoFocus?: boolean;
 }
 
-export default function CardView({ card, myId, onChange, onDelete, onDragEnd, onFocusCard }: Props) {
+export default function CardView({ card, myId, onChange, onDelete, onDragEnd, onFocusCard, autoFocus }: Props) {
   const mine = canEdit(card, myId);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(autoFocus ?? false);
   const drag = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
   const resize = useRef<{ startX: number; startW: number } | null>(null);
   const [pos, setPos] = useState({ x: card.x, y: card.y });
@@ -27,7 +29,9 @@ export default function CardView({ card, myId, onChange, onDelete, onDragEnd, on
   function onPointerDown(e: React.PointerEvent) {
     if (editing) return;
     onFocusCard();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // 컨테이너(currentTarget)가 포인터를 소유해야 move/up/scale 기준(currentTarget)과
+    // 일치한다. img 같은 자식(e.target)에 캡처를 걸면 의도와 어긋난다.
+    e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { dx: e.clientX, dy: e.clientY, moved: false };
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -46,7 +50,7 @@ export default function CardView({ card, myId, onChange, onDelete, onDragEnd, on
   // 사진 카드 크기 조절(소유자) — 드래그 중 로컬, 드롭 시 1회 저장
   function onResizeDown(e: React.PointerEvent) {
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
     resize.current = { startX: e.clientX, startW: w };
   }
   function onResizeMove(e: React.PointerEvent) {
@@ -115,14 +119,22 @@ export default function CardView({ card, myId, onChange, onDelete, onDragEnd, on
   );
 }
 
-// react-zoom-pan-pinch 내부 transform의 현재 scale을 DOM에서 읽음
+// react-zoom-pan-pinch 내부 transform의 현재 scale을 DOM에서 읽음.
+// 주의(robustness): 회전 변환은 고려하지 않는다(m.a가 cos계수가 됨). 카드/조상에
+// scale·animation transform이 추가되면 잘못된 노드를 먼저 잡을 수 있다. getComputedStyle이
+// matrix가 아닌 translate()/scale() 함수 표기를 돌려주는 환경에서 DOMMatrixReadOnly가
+// 던질 수 있으므로 try/catch로 감싸 핸들러 밖으로 예외가 전파되지 않게 한다.
 function currentScale(el: HTMLElement): number {
   let node: HTMLElement | null = el;
   while (node) {
     const t = getComputedStyle(node).transform;
     if (t && t !== 'none') {
-      const m = new DOMMatrixReadOnly(t);
-      if (m.a) return m.a;
+      try {
+        const m = new DOMMatrixReadOnly(t);
+        if (m.a) return m.a;
+      } catch {
+        // 파싱 실패 시 이 노드는 건너뛰고 상위로 계속 탐색.
+      }
     }
     node = node.parentElement;
   }

@@ -41,6 +41,10 @@ create policy "boards anon all" on boards for all to anon using (true) with chec
 create policy "cards anon all"  on cards  for all to anon using (true) with check (true);
 
 -- realtime 발행
+-- REPLICA IDENTITY FULL: DELETE 이벤트의 old 레코드에 board_id가 담기도록 해야
+-- postgres_changes의 board_id=eq.<id> 서버 필터가 DELETE를 통과시킨다(기본 PK만이면
+-- old에 id만 있어 필터에 걸려 DELETE 이벤트가 구독자에게 전달되지 않음, spec §7).
+alter table cards replica identity full;
 alter publication supabase_realtime add table cards;
 
 -- 스토리지: 공개 읽기 버킷
